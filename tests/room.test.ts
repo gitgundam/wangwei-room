@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { test } from 'node:test'
-import { Box3, MeshStandardMaterial, PerspectiveCamera, Raycaster, Texture, Vector2, Vector3 } from 'three'
+import { Box3, Mesh, MeshStandardMaterial, PerspectiveCamera, Quaternion, Raycaster, Texture, Vector2, Vector3 } from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { getViewPose, PARTS, RoomBindings, sourceName, TapGesture } from '../src/scene/room-state.ts'
 
@@ -38,7 +38,7 @@ function cameraFor(view: 'overview' | 'desk', aspect: number) {
 
 test('published GLB contains only reviewed procedural textures and no orphaned binary data', async () => {
   const manifest = JSON.parse(await readFile(new URL('./fixtures/room-textures.json', import.meta.url), 'utf8'))
-  assert.equal(json.images.length, 28)
+  assert.equal(json.images.length, 31)
   const allowed = new Map(manifest.textures.map((image: {name: string; sha256: string}) => [image.name, image.sha256]))
   const binStart = 20 + file.readUInt32LE(12) + 8
   for (const image of json.images) {
@@ -64,13 +64,44 @@ test('published GLB contains only reviewed procedural textures and no orphaned b
 })
 
 test('actual model preserves metric bounds, meshes and all required semantic groups', () => {
-  assert.equal(json.meshes.length, 784)
+  assert.equal(json.meshes.length, 784 + 63)
   assert.equal(bindings.meshes.length, json.meshes.reduce((sum: number, mesh: {primitives: unknown[]}) => sum + mesh.primitives.length, 0))
   const expectedMin = [-1.57, -0.13, -2.23]
   const expectedMax = [1.75, 2.73, 2.29]
   bindings.bounds.min.toArray().forEach((value, i) => assert.ok(Math.abs(value - expectedMin[i]!) < 0.015, String(value)))
   bindings.bounds.max.toArray().forEach((value, i) => assert.ok(Math.abs(value - expectedMax[i]!) < 0.015, String(value)))
   Object.values(PARTS).forEach((name) => assert.ok(objects.has(name), name))
+})
+
+test('fufu is a separate 40cm assembly resting on the bed, preserving existing toys', () => {
+  const toy = objects.get('初音未来 fufu · 整体')
+  assert.ok(toy)
+  assert.equal(sourceName(toy.parent!), '床 · 含床品与玩偶')
+  assert.ok(objects.has('床头上方初音玩偶 · 整体'))
+  assert.ok(objects.has('墙架初音玩偶 · 整体'))
+  const required = ['左马尾', '右马尾', '脸部', '左刺绣眼睛', '右刺绣眼睛', '粉色笑嘴', '米白褶裙', '后领高音谱号']
+  required.forEach(name => assert.ok(objects.get(`fufu · ${name}`) instanceof Mesh, name))
+  const bounds = new Box3().setFromObject(toy)
+  assert.ok(bounds.min.y >= 0.451 && bounds.min.y <= 0.457, 'must contact the mattress')
+  assert.ok(bounds.min.x > -0.6685 && bounds.max.x < 1.4045)
+  assert.ok(bounds.min.z > -1.1725 && bounds.max.z < 0.6625)
+  const inverseRotation = toy.getWorldQuaternion(new Quaternion()).invert()
+  const origin = toy.getWorldPosition(new Vector3())
+  const aligned = new Box3()
+  const point = new Vector3()
+  let meshes = 0
+  toy.traverse(object => {
+    if (!(object instanceof Mesh)) return
+    meshes++
+    const positions = object.geometry.getAttribute('position')
+    for (let i = 0; i < positions.count; i++) {
+      point.fromBufferAttribute(positions, i).applyMatrix4(object.matrixWorld).sub(origin).applyQuaternion(inverseRotation)
+      assert.ok(point.toArray().every(Number.isFinite))
+      aligned.expandByPoint(point)
+    }
+  })
+  assert.equal(meshes, 63)
+  assert.ok(Math.abs(aligned.getSize(new Vector3()).x - 0.4) < 0.003, '40cm calibrated width')
 })
 
 test('screen power is reversible without changing other materials or geometric artwork', () => {

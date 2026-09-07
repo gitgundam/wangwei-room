@@ -1,5 +1,5 @@
 {
-  "description": "Reviewed procedural material textures. No source photographs.",
+  "description": "Reviewed procedural room textures and generated fufu fabric normal maps. No source photographs.",
   "textures": [
     {
       "name": "墙纸细纹_v2_法线",
@@ -112,6 +112,18 @@
     {
       "name": "窗帘深灰拼接 · 颜色",
       "sha256": "29a648353a3e88af895049c0e94bd10321303d12ad30fd819dfcfb55a5f63ddf"
+    },
+    {
+      "name": "fufu_woven_normal",
+      "sha256": "092ad74cdc25486c11cbbacf06a4c8e84287bb2662a3f9980a7af38bee336fe5"
+    },
+    {
+      "name": "fufu_plush_normal",
+      "sha256": "4c707be1678369e58b62a08f2f799f16545772beac74a87c3e653d30169a2ee4"
+    },
+    {
+      "name": "fufu_embroidery_normal",
+      "sha256": "d059b34bf049d2e6c1016d81d24af59ea7a3df157c0af4b8bd77f40354e11d7e"
     }
   ]
 }
