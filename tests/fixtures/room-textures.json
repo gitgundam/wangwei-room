@@ -1,0 +1,117 @@
+{
+  "description": "Reviewed procedural material textures. No source photographs.",
+  "textures": [
+    {
+      "name": "墙纸细纹_v2_法线",
+      "sha256": "edc746f93c0ea5a9e294f421dffa23537fae874c5cd3eb6d89d4c96a70d7ab4c"
+    },
+    {
+      "name": "墙纸细纹_v2_颜色",
+      "sha256": "a94ba1c14800ba73016931f2ffb9cb0605a520f19c44528cc1a0f220b4001fd5"
+    },
+    {
+      "name": "床头墙板细纹_v2_法线",
+      "sha256": "edc746f93c0ea5a9e294f421dffa23537fae874c5cd3eb6d89d4c96a70d7ab4c"
+    },
+    {
+      "name": "床头墙板细纹_v2_颜色",
+      "sha256": "0cbaa04329fc43302fa46bc6404499d424cf2a77adb65f8ad31c7657aff65c91"
+    },
+    {
+      "name": "玩偶青绿色毛绒 · 法线",
+      "sha256": "a2f820166b4985f3725bb2b2d105a432b650542eb353e0a2bbd9440a14e6697c"
+    },
+    {
+      "name": "玩偶青绿色毛绒 · 颜色",
+      "sha256": "29805abc62f9e2c00231579b33376cde13c64ed0374b415f8ee47aa14bf82503"
+    },
+    {
+      "name": "灰色床品织物 · 法线",
+      "sha256": "a2f820166b4985f3725bb2b2d105a432b650542eb353e0a2bbd9440a14e6697c"
+    },
+    {
+      "name": "灰色床品织物 · 颜色",
+      "sha256": "264f395355bf65d35b7dbd058c45c0e3d0f6976f8760d82294fd92a6fc7a9037"
+    },
+    {
+      "name": "床裙暖灰织物 · 法线",
+      "sha256": "a2f820166b4985f3725bb2b2d105a432b650542eb353e0a2bbd9440a14e6697c"
+    },
+    {
+      "name": "床裙暖灰织物 · 颜色",
+      "sha256": "5359f2d580b3369c26b010ee40d0e9bd77ecf76295ea4f863287ada2095be70d"
+    },
+    {
+      "name": "竹木增高架与边桌 · 法线",
+      "sha256": "d629d4b3a7d6e4315e37c264c15f791dd74b849aa8bf3c95b06aa76cb93b856a"
+    },
+    {
+      "name": "竹木增高架与边桌 · 颜色",
+      "sha256": "9567c7444be4e0fd41074bb2a9a510221c944c5ba30a041720b01459ea2bd712"
+    },
+    {
+      "name": "办公椅细密网布 · 法线",
+      "sha256": "a2f820166b4985f3725bb2b2d105a432b650542eb353e0a2bbd9440a14e6697c"
+    },
+    {
+      "name": "办公椅细密网布 · 颜色",
+      "sha256": "b6cb136ca861cf435e41ad024f4fbbb53d07925a22b0e8c7766d2038568406f6"
+    },
+    {
+      "name": "浅灰地毯 · 法线",
+      "sha256": "854f31d0df9e523222be318a4597abef3eeda4a10a3d30bfb00a89f78058ad15"
+    },
+    {
+      "name": "浅灰地毯 · 颜色",
+      "sha256": "7e4fa49e78ee03b5559925986dec3efffbc05220f070996faeb73ddd04552c97"
+    },
+    {
+      "name": "收纳米白布料 · 法线",
+      "sha256": "a2f820166b4985f3725bb2b2d105a432b650542eb353e0a2bbd9440a14e6697c"
+    },
+    {
+      "name": "收纳米白布料 · 颜色",
+      "sha256": "36f10dbe8d9e53650a6f862e51ab9f20258eaedc287f3361e08f3f41f299c75a"
+    },
+    {
+      "name": "牛仔蓝布料 · 法线",
+      "sha256": "a2f820166b4985f3725bb2b2d105a432b650542eb353e0a2bbd9440a14e6697c"
+    },
+    {
+      "name": "牛仔蓝布料 · 颜色",
+      "sha256": "d90d1df7b3a492dc6ce4393289c808794d4971a28f4289154902851c819ad931"
+    },
+    {
+      "name": "淡紫粉色叠被 · 法线",
+      "sha256": "a2f820166b4985f3725bb2b2d105a432b650542eb353e0a2bbd9440a14e6697c"
+    },
+    {
+      "name": "淡紫粉色叠被 · 颜色",
+      "sha256": "b2e292d9cfd2c299559aa6d20b882e8f1d1e29c830d3b1c2d69163897a096113"
+    },
+    {
+      "name": "暖橡木地板 · 法线",
+      "sha256": "9063ddf7e5d927507bbbc5dc21440788df523ff002fe0d8192871576c27b4dc1"
+    },
+    {
+      "name": "暖橡木地板 · 颜色",
+      "sha256": "fb644e314cf879164976d464d318cb94339668ad1b4a96d4bb4efeac2c3b5f13"
+    },
+    {
+      "name": "藕粉提花窗帘 · 法线",
+      "sha256": "973943046907f5311548322d7fc7500bcdcef4af2d6064867bac365ab1b46a7f"
+    },
+    {
+      "name": "藕粉提花窗帘 · 颜色",
+      "sha256": "b3808217c2d601d04bcbbd9d46ab193cac437dadcd6b567765a5cb7d9aa4f7d8"
+    },
+    {
+      "name": "窗帘深灰拼接 · 法线",
+      "sha256": "a2f820166b4985f3725bb2b2d105a432b650542eb353e0a2bbd9440a14e6697c"
+    },
+    {
+      "name": "窗帘深灰拼接 · 颜色",
+      "sha256": "29a648353a3e88af895049c0e94bd10321303d12ad30fd819dfcfb55a5f63ddf"
+    }
+  ]
+}

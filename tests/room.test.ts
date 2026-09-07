@@ -1,0 +1,157 @@
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { test } from 'node:test'
+import { Box3, MeshStandardMaterial, PerspectiveCamera, Raycaster, Texture, Vector2, Vector3 } from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { getViewPose, PARTS, RoomBindings, sourceName, TapGesture } from '../src/scene/room-state.ts'
+
+const file = await readFile(new URL('../public/models/room.glb', import.meta.url))
+const bytes = file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength)
+const loader = new GLTFLoader()
+// Decode the actual GLB hierarchy, geometry and materials in Node. Only browser
+// image decoding is substituted; visual/WebGL rendering is not claimed by these tests.
+loader.register((parser) => ({
+  name: 'NODE_TEST_TEXTURES',
+  loadTexture: async (index: number) => {
+    const texture = new Texture()
+    texture.name = parser.json.images[parser.json.textures[index].source].name
+    texture.flipY = false
+    return texture
+  },
+}))
+const { scene } = await loader.parseAsync(bytes, '')
+const bindings = new RoomBindings(scene)
+const json = JSON.parse(file.subarray(20, 20 + file.readUInt32LE(12)).toString())
+const objects = new Map<string, typeof scene.children[number]>()
+scene.traverse((object) => objects.set(sourceName(object), object))
+
+function cameraFor(view: 'overview' | 'desk', aspect: number) {
+  const pose = getViewPose(view, bindings.bounds, aspect)
+  const camera = new PerspectiveCamera(pose.fov, aspect, 0.035, 100)
+  camera.position.copy(pose.position)
+  camera.lookAt(pose.target)
+  camera.updateMatrixWorld()
+  camera.updateProjectionMatrix()
+  return camera
+}
+
+test('published GLB contains only reviewed procedural textures and no orphaned binary data', async () => {
+  const manifest = JSON.parse(await readFile(new URL('./fixtures/room-textures.json', import.meta.url), 'utf8'))
+  assert.equal(json.images.length, 28)
+  const allowed = new Map(manifest.textures.map((image: {name: string; sha256: string}) => [image.name, image.sha256]))
+  const binStart = 20 + file.readUInt32LE(12) + 8
+  for (const image of json.images) {
+    assert.equal(image.uri, undefined)
+    assert.equal(image.mimeType, 'image/png')
+    const view = json.bufferViews[image.bufferView]
+    const bytes = file.subarray(binStart + (view.byteOffset ?? 0), binStart + (view.byteOffset ?? 0) + view.byteLength)
+    assert.equal(bytes.subarray(0, 8).toString('hex'), '89504e470d0a1a0a')
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), allowed.get(image.name))
+  }
+  const metadata = JSON.stringify(json)
+  assert.ok(!/IMG_\d|image\/jpeg|data:image|\.heic/i.test(metadata))
+  // Every byte must belong to a declared view, except zero-filled 4-byte alignment.
+  let cursor = binStart
+  for (const view of json.bufferViews) {
+    const start = binStart + (view.byteOffset ?? 0)
+    assert.ok(start >= cursor && start - cursor <= 3)
+    assert.ok(file.subarray(cursor, start).every(byte => byte === 0))
+    cursor = start + view.byteLength
+  }
+  assert.ok(file.length - cursor <= 3)
+  assert.ok(file.subarray(cursor).every(byte => byte === 0))
+})
+
+test('actual model preserves metric bounds, meshes and all required semantic groups', () => {
+  assert.equal(json.meshes.length, 784)
+  assert.equal(bindings.meshes.length, json.meshes.reduce((sum: number, mesh: {primitives: unknown[]}) => sum + mesh.primitives.length, 0))
+  const expectedMin = [-1.57, -0.13, -2.23]
+  const expectedMax = [1.75, 2.73, 2.29]
+  bindings.bounds.min.toArray().forEach((value, i) => assert.ok(Math.abs(value - expectedMin[i]!) < 0.015, String(value)))
+  bindings.bounds.max.toArray().forEach((value, i) => assert.ok(Math.abs(value - expectedMax[i]!) < 0.015, String(value)))
+  Object.values(PARTS).forEach((name) => assert.ok(objects.has(name), name))
+})
+
+test('screen power is reversible without changing other materials or geometric artwork', () => {
+  const original = bindings.screen.material as MeshStandardMaterial
+  assert.ok(original.map)
+  const otherMaterials = bindings.meshes.filter((mesh) => mesh !== bindings.screen).map((mesh) => ({ mesh, material: mesh.material }))
+  const others = otherMaterials.map(({ material }) => JSON.stringify((Array.isArray(material) ? material : [material]).map((m) => m.toJSON())))
+  bindings.setScreenPower(false)
+  const off = bindings.screen.material as MeshStandardMaterial
+  assert.equal(off.map, null)
+  assert.equal(off.emissive.getHex(), 0)
+  assert.equal(bindings.screenOn, false)
+  bindings.setScreenPower(true)
+  assert.equal(bindings.screen.material, original)
+  assert.ok(original.map)
+  otherMaterials.forEach(({ mesh, material }, i) => {
+    assert.equal(mesh.material, material)
+    assert.equal(JSON.stringify((Array.isArray(material) ? material : [material]).map((m) => m.toJSON())), others[i])
+  })
+})
+
+test('rotating to each quadrant hides near walls, shows far walls, and always hides the ceiling', () => {
+  for (const x of [-6, 6]) {
+    for (const z of [-6, 6]) {
+      bindings.updateCutaway(new Vector3(x, 5, z))
+      assert.equal(objects.get(PARTS.east)!.visible, x < 0)
+      assert.equal(objects.get(PARTS.west)!.visible, x > 0)
+      assert.equal(objects.get(PARTS.south)!.visible, z < 0)
+      assert.equal(objects.get(PARTS.north)!.visible, z > 0)
+      assert.equal(objects.get(PARTS.ceiling)!.visible, false)
+    }
+  }
+})
+
+test('overview frames every room corner on desktop, portrait phone and short landscape', () => {
+  for (const aspect of [2.3, 1.5, 0.72, 0.48]) {
+    const camera = cameraFor('overview', aspect)
+    for (const x of [bindings.bounds.min.x, bindings.bounds.max.x]) {
+      for (const y of [bindings.bounds.min.y, bindings.bounds.max.y]) {
+        for (const z of [bindings.bounds.min.z, bindings.bounds.max.z]) {
+          const projected = new Vector3(x, y, z).project(camera)
+          assert.ok(Math.abs(projected.x) < 0.93, `horizontal clipping at aspect ${aspect}: ${projected.x}`)
+          assert.ok(Math.abs(projected.y) < 0.93, `vertical clipping at aspect ${aspect}: ${projected.y}`)
+          assert.ok(projected.z > -1 && projected.z < 1)
+        }
+      }
+    }
+  }
+})
+
+test('desk view can actually click the visible screen, with proper occlusion', () => {
+  for (const aspect of [1.5, 0.72]) {
+    const camera = cameraFor('desk', aspect)
+    bindings.updateCutaway(camera.position)
+    const screenCentre = new Box3().setFromObject(bindings.screen).getCenter(new Vector3())
+    const ndc = screenCentre.project(camera)
+    assert.ok(Math.abs(ndc.x) < 1 && Math.abs(ndc.y) < 1, 'screen must be inside the viewport')
+    assert.equal(bindings.hitScreen(new Vector2(ndc.x, ndc.y), camera, new Raycaster()), true)
+    assert.equal(bindings.hitScreen(new Vector2(0.99, 0.99), camera, new Raycaster()), false)
+    const parent = bindings.screen.parent!
+    const previous = parent.visible
+    parent.visible = false
+    assert.equal(bindings.hitScreen(new Vector2(ndc.x, ndc.y), camera, new Raycaster()), false)
+    parent.visible = previous
+  }
+})
+
+test('drag, returning drag, right button and pinch never trigger a screen tap', () => {
+  const tap = new TapGesture()
+  tap.down(1, 20, 20, 0)
+  assert.equal(tap.up(1, 21, 20), true)
+  tap.down(1, 20, 20, 0)
+  tap.move(1, 40, 20)
+  assert.equal(tap.up(1, 20, 20), false)
+  tap.down(1, 20, 20, 2)
+  assert.equal(tap.up(1, 20, 20), false)
+  tap.down(1, 20, 20, 0)
+  tap.down(2, 30, 20, 0)
+  assert.equal(tap.up(2, 30, 20), false)
+  assert.equal(tap.up(1, 20, 20), false)
+  tap.down(1, 20, 20, 0)
+  tap.cancel()
+  assert.equal(tap.up(1, 20, 20), false)
+})
