@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import type { Object3D } from 'three'
 import RoomIcon from './components/RoomIcon.vue'
+import FufuInspector from './components/FufuInspector.vue'
 import { RoomError, RoomViewer } from './scene/room'
 import type { ActiveView, RoomView } from './scene/room-state'
 
@@ -13,6 +15,7 @@ const lightsOn = ref(true)
 const screenOn = ref(true)
 const activeView = ref<ActiveView>('overview')
 const helpOpen = ref(false)
+const inspectedFufu = shallowRef<Object3D | null>(null)
 const base = import.meta.env.BASE_URL
 const ready = computed(() => phase.value === 'ready')
 const percent = computed(() => progress.value === null ? null : Math.round(progress.value * 100))
@@ -22,6 +25,7 @@ let generation = 0
 
 async function startViewer() {
   const run = ++generation
+  inspectedFufu.value = null
   viewer?.dispose()
   viewer = undefined
   phase.value = 'loading'
@@ -41,10 +45,12 @@ async function startViewer() {
       },
       onScreenChange: (value) => { screenOn.value = value },
       onViewChange: (value) => { activeView.value = value },
+      onInspectFufu: openFufu,
       onFatalError: (error) => {
         if (run !== generation) return
         errorMessage.value = error.message
         phase.value = 'error'
+        inspectedFufu.value = null
         viewer?.dispose()
         viewer = undefined
       },
@@ -67,6 +73,15 @@ async function startViewer() {
 function changeView(view: RoomView) {
   if (ready.value) viewer?.setView(view)
 }
+function openFufu() {
+  if (!ready.value || !viewer || inspectedFufu.value) return
+  inspectedFufu.value = viewer.createFufuDisplay()
+  if (inspectedFufu.value) viewer.setInspecting(true)
+}
+function closeFufu() {
+  inspectedFufu.value = null
+  viewer?.setInspecting(false)
+}
 function toggleLights() {
   if (!ready.value) return
   lightsOn.value = !lightsOn.value
@@ -83,13 +98,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="room-page" :class="{ 'lights-off': !lightsOn && ready }">
+  <main class="room-page" :class="{ 'lights-off': !lightsOn && ready, 'inspecting-fufu': !!inspectedFufu }">
     <header class="page-header">
       <div class="room-title">
         <span class="home-mark"><RoomIcon name="home" /></span>
         <div>
           <h1>王威的房间</h1>
-          <p>拖动看看，点击屏幕试试。</p>
+          <p>拖动看看，也可以点点 fufu。</p>
         </div>
       </div>
       <div class="view-indicator" aria-live="polite">
@@ -148,16 +163,21 @@ onBeforeUnmount(() => {
       </div>
       <div class="footer-meta">
         <p id="scene-help" class="gesture-hint"><RoomIcon name="drag" /><span class="desktop-hint">拖拽旋转<span class="hint-dot">·</span>滚轮缩放<span class="hint-dot">·</span>右键平移</span><span class="touch-hint">单指旋转<span class="hint-dot">·</span>双指缩放与平移</span></p>
-        <button class="help-button" :aria-expanded="helpOpen" aria-controls="help-panel" @click="helpOpen = !helpOpen">操作说明<span aria-hidden="true">{{ helpOpen ? '−' : '+' }}</span></button>
+        <div class="footer-actions">
+          <button class="inspect-button" :disabled="!ready" @click="openFufu">看看 fufu <span aria-hidden="true">↗</span></button>
+          <button class="help-button" :aria-expanded="helpOpen" aria-controls="help-panel" @click="helpOpen = !helpOpen">操作说明<span aria-hidden="true">{{ helpOpen ? '−' : '+' }}</span></button>
+        </div>
       </div>
       <aside v-if="helpOpen" id="help-panel" class="help-panel">
         <button class="close-help" aria-label="关闭操作说明" @click="helpOpen = false">×</button>
         <h2>随手逛逛你的小屋</h2>
         <p>拖动房间调整角度，滚轮或双指缩放。靠近你的墙面会自动隐藏。</p>
         <p>切到「书桌」，可以直接点击显示器开关屏幕。底部两个开关也能控制灯光和屏幕。</p>
+        <p>点击架上或床上的 fufu，可以放大旋转查看。按 Esc 或「返回房间」退出。</p>
         <p class="keyboard-help">键盘：聚焦模型后，用方向键旋转，＋ / − 缩放，Home 重置视角。</p>
       </aside>
     </footer>
     <span class="sr-only" role="status" aria-live="polite">{{ ready ? `房间灯光${lightsOn ? '开启' : '关闭'}，电脑屏幕${screenOn ? '开启' : '关闭'}` : '' }}</span>
+    <FufuInspector v-if="inspectedFufu" :model="inspectedFufu" @close="closeFufu" />
   </main>
 </template>

@@ -21,6 +21,7 @@ interface Callbacks {
   onProgress: (progress: number | null, stage: 'download' | 'prepare') => void
   onScreenChange: (on: boolean) => void
   onViewChange: (view: ActiveView) => void
+  onInspectFufu: () => void
   onFatalError: (error: RoomError) => void
 }
 
@@ -83,6 +84,7 @@ export class RoomViewer {
   private lightsOn = true
   private lightLevel = 1
   private lastFrame = 0
+  private inspecting = false
 
   constructor(container: HTMLElement, callbacks: Callbacks) {
     this.container = container
@@ -100,7 +102,7 @@ export class RoomViewer {
     this.renderer.shadowMap.type = PCFSoftShadowMap
     const canvas = this.renderer.domElement
     canvas.tabIndex = 0
-    canvas.setAttribute('aria-label', '互动房间：拖拽旋转，滚轮缩放。键盘方向键旋转，加减键缩放，Home 键重置视角。')
+    canvas.setAttribute('aria-label', '互动房间：点击 fufu 放大查看，点击屏幕开关。拖拽旋转，滚轮缩放，方向键旋转，加减键缩放，Home 重置。')
     canvas.setAttribute('aria-describedby', 'scene-help')
     container.appendChild(canvas)
 
@@ -221,6 +223,27 @@ export class RoomViewer {
     this.requestRender()
   }
 
+  createFufuDisplay() { return this.bindings?.createFufuDisplay() ?? null }
+
+  setInspecting(value: boolean) {
+    this.inspecting = value
+    this.controls.enabled = !value && !!this.bindings
+    this.tap.cancel()
+    if (value) {
+      this.transition = null
+      cancelAnimationFrame(this.raf)
+      this.raf = 0
+      const position = this.camera.position.clone()
+      const target = this.controls.target.clone()
+      this.controls.enableDamping = false
+      this.controls.update()
+      this.controls.enableDamping = true
+      this.camera.position.copy(position)
+      this.controls.target.copy(target)
+      this.controls.update()
+    } else this.requestRender()
+  }
+
   setLightsPower(on: boolean) {
     this.lightsOn = on
     this.requestRender()
@@ -269,17 +292,22 @@ export class RoomViewer {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.innerWidth < 768 ? 1.25 : 1.75))
     this.renderer.setSize(width, height)
     if (this.activeView !== 'custom') this.setView(this.activeView, false)
-    this.requestRender()
+    if (this.inspecting) {
+      // Resizing clears the drawing buffer. Refresh the frozen room once so it
+      // remains visible behind the independent viewer after phone rotation.
+      this.bindings?.updateCutaway(this.camera.position)
+      this.renderer.render(this.scene, this.camera)
+    } else this.requestRender()
   }
 
   private requestRender = () => {
-    if (this.disposed || this.raf || document.hidden) return
+    if (this.disposed || this.inspecting || this.raf || document.hidden) return
     this.raf = requestAnimationFrame(this.render)
   }
 
   private render = (time: number) => {
     this.raf = 0
-    if (this.disposed || document.hidden) return
+    if (this.disposed || this.inspecting || document.hidden) return
     const delta = Math.min((time - this.lastFrame) / 1000 || 1 / 60, 0.05)
     this.lastFrame = time
     if (this.transition) {
@@ -315,19 +343,22 @@ export class RoomViewer {
   }
 
   private onPointerDown = (event: PointerEvent) => {
+    if (this.inspecting) return
     this.renderer.domElement.focus({ preventScroll: true })
     this.tap.down(event.pointerId, event.clientX, event.clientY, event.button)
   }
   private onPointerMove = (event: PointerEvent) => this.tap.move(event.pointerId, event.clientX, event.clientY)
   private onPointerUp = (event: PointerEvent) => {
-    if (!this.tap.up(event.pointerId, event.clientX, event.clientY) || !this.bindings) return
+    if (this.inspecting || !this.tap.up(event.pointerId, event.clientX, event.clientY) || !this.bindings) return
     const rect = this.renderer.domElement.getBoundingClientRect()
     this.pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1)
-    if (this.bindings.hitScreen(this.pointer, this.camera, this.raycaster)) this.setScreenPower(!this.bindings.screenOn)
+    const target = this.bindings.hitTarget(this.pointer, this.camera, this.raycaster)
+    if (target === 'fufu') this.callbacks.onInspectFufu()
+    else if (target === 'screen') this.setScreenPower(!this.bindings.screenOn)
   }
 
   private onKeyDown = (event: KeyboardEvent) => {
-    if (!this.bindings || event.altKey || event.metaKey || event.ctrlKey) return
+    if (this.inspecting || !this.bindings || event.altKey || event.metaKey || event.ctrlKey) return
     if (event.key === 'Home') {
       event.preventDefault()
       this.setView('overview')

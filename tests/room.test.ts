@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import { Box3, Mesh, MeshStandardMaterial, PerspectiveCamera, Quaternion, Raycaster, Texture, Vector2, Vector3 } from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { getViewPose, PARTS, RoomBindings, sourceName, TapGesture } from '../src/scene/room-state.ts'
+import { createFufuDisplay, FUFU, getFufuDistance } from '../src/scene/fufu.ts'
 
 const file = await readFile(new URL('../public/models/room.glb', import.meta.url))
 const bytes = file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength)
@@ -65,7 +66,13 @@ test('published GLB contains only reviewed procedural textures and no orphaned b
 
 test('actual model preserves metric bounds, meshes and all required semantic groups', () => {
   assert.equal(json.meshes.length, 784 + 63)
-  assert.equal(bindings.meshes.length, json.meshes.reduce((sum: number, mesh: {primitives: unknown[]}) => sum + mesh.primitives.length, 0))
+  // Shelf copy shares the refined toy's geometry; the old shelf assembly is replaced.
+  const oldShelf = json.nodes.findIndex((node: {extras?: {source_name?: string}}) => node.extras?.source_name === FUFU.oldShelf)
+  const countPrimitives = (index: number): number => {
+    const node = json.nodes[index]
+    return (node.mesh === undefined ? 0 : json.meshes[node.mesh].primitives.length) + (node.children ?? []).reduce((sum: number, child: number) => sum + countPrimitives(child), 0)
+  }
+  assert.equal(bindings.meshes.length, json.meshes.reduce((sum: number, mesh: {primitives: unknown[]}) => sum + mesh.primitives.length, 0) - countPrimitives(oldShelf) + 63)
   const expectedMin = [-1.57, -0.13, -2.23]
   const expectedMax = [1.75, 2.73, 2.29]
   bindings.bounds.min.toArray().forEach((value, i) => assert.ok(Math.abs(value - expectedMin[i]!) < 0.015, String(value)))
@@ -73,12 +80,13 @@ test('actual model preserves metric bounds, meshes and all required semantic gro
   Object.values(PARTS).forEach((name) => assert.ok(objects.has(name), name))
 })
 
-test('fufu is a separate 40cm assembly resting on the bed, preserving existing toys', () => {
+test('bed fufu remains a separate 40cm assembly after replacing the shelf toy', () => {
   const toy = objects.get('初音未来 fufu · 整体')
   assert.ok(toy)
   assert.equal(sourceName(toy.parent!), '床 · 含床品与玩偶')
   assert.ok(objects.has('床头上方初音玩偶 · 整体'))
-  assert.ok(objects.has('墙架初音玩偶 · 整体'))
+  assert.ok(objects.has(FUFU.shelf))
+  assert.ok(!objects.has(FUFU.oldShelf))
   const required = ['左马尾', '右马尾', '脸部', '左刺绣眼睛', '右刺绣眼睛', '粉色笑嘴', '米白褶裙', '后领高音谱号']
   required.forEach(name => assert.ok(objects.get(`fufu · ${name}`) instanceof Mesh, name))
   const bounds = new Box3().setFromObject(toy)
@@ -102,6 +110,52 @@ test('fufu is a separate 40cm assembly resting on the bed, preserving existing t
   })
   assert.equal(meshes, 63)
   assert.ok(Math.abs(aligned.getSize(new Vector3()).x - 0.4) < 0.003, '40cm calibrated width')
+})
+
+test('shelf fufu fits the existing shelf, reuses assets, and is selectable with occlusion', () => {
+  const toy = bindings.shelfFufu
+  const bounds = new Box3().setFromObject(toy)
+  assert.ok(bounds.min.y > 1.513 && bounds.min.y < 1.519)
+  assert.ok(bounds.min.x > -1.45 && bounds.max.x < -1.09)
+  assert.ok(bounds.min.z >= 1.318 && bounds.max.z <= 1.612)
+  const bedGeometry = new Set()
+  bindings.fufu.traverse(object => { if (object instanceof Mesh) bedGeometry.add(object.geometry) })
+  toy.traverse(object => { if (object instanceof Mesh) assert.ok(bedGeometry.has(object.geometry)) })
+  for (const aspect of [1.5, 0.48]) {
+    const camera = cameraFor('desk', aspect)
+    bindings.updateCutaway(camera.position)
+    const centre = bounds.getCenter(new Vector3()).project(camera)
+    assert.ok(Math.abs(centre.x) < 1 && Math.abs(centre.y) < 1)
+    const pointer = new Vector2(centre.x, centre.y)
+    assert.equal(bindings.hitTarget(pointer, camera, new Raycaster()), 'fufu')
+    toy.visible = false
+    assert.notEqual(bindings.hitTarget(pointer, camera, new Raycaster()), 'fufu')
+    toy.visible = true
+  }
+})
+
+test('independent display leaves the room unchanged and fits desktop and phone views', () => {
+  const originalTransform = bindings.fufu.matrixWorld.clone()
+  const model = createFufuDisplay(bindings.fufu)
+  const bounds = new Box3().setFromObject(model)
+  assert.ok(bounds.getCenter(new Vector3()).length() < 1e-6)
+  const size = bounds.getSize(new Vector3())
+  assert.ok(Math.abs(size.x - 0.4) < 0.003)
+  for (const aspect of [2.5, 1.5, 0.6, 0.4]) {
+    const camera = new PerspectiveCamera(32, aspect, 0.01, 10)
+    camera.position.set(0, 0.025, getFufuDistance(size, aspect))
+    camera.lookAt(0, 0, 0)
+    camera.updateMatrixWorld()
+    for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
+      const corner = new Vector3(x, y, z).project(camera)
+      assert.ok(Math.abs(corner.x) < 0.93 && Math.abs(corner.y) < 0.93)
+      assert.ok(corner.z > -1 && corner.z < 1)
+    }
+  }
+  model.rotation.y = 1.2
+  model.scale.setScalar(2)
+  model.updateMatrixWorld(true)
+  assert.deepEqual(bindings.fufu.matrixWorld.elements, originalTransform.elements)
 })
 
 test('screen power is reversible without changing other materials or geometric artwork', () => {

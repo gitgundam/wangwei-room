@@ -3,6 +3,7 @@ import {
   Raycaster, Vector2, Vector3,
 } from 'three'
 import { createArtwork } from './artwork'
+import { createFufuDisplay, FUFU, replaceShelfFufu } from './fufu'
 
 export type RoomView = 'overview' | 'desk'
 export type ActiveView = RoomView | 'custom'
@@ -31,6 +32,8 @@ export function isEffectivelyVisible(object: Object3D): boolean {
 export class RoomBindings {
   readonly root: Object3D
   readonly screen: Mesh
+  readonly fufu: Object3D
+  readonly shelfFufu: Object3D
   readonly meshes: Mesh[] = []
   readonly bounds: Box3
   private readonly ceiling: Object3D
@@ -44,6 +47,8 @@ export class RoomBindings {
   private readonly direction = new Vector3()
   private readonly centre = new Vector3()
   private readonly artworkCleanup: (() => void)[] = []
+  private readonly restoreShelf: () => void
+  private readonly fufuMeshes = new Set<Object3D>()
   screenOn = true
 
   constructor(root: Object3D) {
@@ -52,7 +57,6 @@ export class RoomBindings {
     root.updateMatrixWorld(true)
     root.traverse((object) => {
       objects.set(sourceName(object), object)
-      if (object instanceof Mesh) this.meshes.push(object)
     })
     const required = (name: string) => {
       const object = objects.get(name)
@@ -64,6 +68,14 @@ export class RoomBindings {
       throw new Error('电脑屏幕材质不兼容')
     }
     this.screen = screen
+    this.fufu = required(FUFU.bed)
+    const replacement = replaceShelfFufu(this.fufu, required(FUFU.oldShelf))
+    this.shelfFufu = replacement.object
+    this.restoreShelf = replacement.restore
+    for (const toy of [this.fufu, this.shelfFufu]) {
+      toy.traverse(object => { if (object instanceof Mesh) this.fufuMeshes.add(object) })
+    }
+    root.traverse(object => { if (object instanceof Mesh) this.meshes.push(object) })
     this.ceiling = required(PARTS.ceiling)
     this.walls = [
       { object: required(PARTS.east), normal: new Vector3(1, 0, 0) },
@@ -134,14 +146,23 @@ export class RoomBindings {
   }
 
   hitScreen(pointer: Vector2, camera: PerspectiveCamera, raycaster: Raycaster) {
+    return this.hitTarget(pointer, camera, raycaster) === 'screen'
+  }
+
+  createFufuDisplay() { return createFufuDisplay(this.fufu) }
+
+  hitTarget(pointer: Vector2, camera: PerspectiveCamera, raycaster: Raycaster): 'screen' | 'fufu' | null {
     camera.updateMatrixWorld()
     raycaster.setFromCamera(pointer, camera)
     // Hidden ancestors must be filtered explicitly; Raycaster ignores visibility.
     const hit = raycaster.intersectObjects(this.meshes.filter(isEffectivelyVisible), false)[0]
-    return hit?.object === this.screen
+    if (!hit) return null
+    if (this.fufuMeshes.has(hit.object)) return 'fufu'
+    return hit.object === this.screen ? 'screen' : null
   }
 
   dispose() {
+    this.restoreShelf()
     this.artworkCleanup.forEach((dispose) => dispose())
     this.screen.material = this.originalScreenMaterial
     this.onMaterial.dispose()

@@ -83,6 +83,30 @@ h1 { font-size: 27px; font-weight: 550; margin: 0; letter-spacing: .04em; line-h
 .help-button { background: transparent; font-size: 14px; color: #596751; display: flex; align-items: center; gap: 8px; padding: 4px; }
 .help-button:enabled:hover { color: #233e2d; }
 .help-button > span { font-size: 18px; line-height: 14px; }
+.footer-actions { display: flex; align-items: center; gap: 22px; }
+.inspect-button { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 3px; color: var(--green); background: transparent; white-space: nowrap; font-size: 14px; }
+.inspect-button:hover { color: #192f25; }
+.inspecting-fufu .page-header, .inspecting-fufu .scene-footer { opacity: 0; pointer-events: none; }
+
+.fufu-inspector { position: fixed; inset: 0; margin: 0; border: 0; padding: 24px 38px 32px; width: 100%; max-width: none; height: 100dvh; max-height: none; color: #293f35; background: transparent; overflow: hidden; }
+.fufu-inspector[open] { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 48px minmax(0, 1fr) auto; }
+.fufu-inspector::backdrop { background: transparent; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+.fufu-toolbar { display: flex; align-items: center; justify-content: space-between; z-index: 1; }
+.fufu-toolbar button { display: inline-flex; align-items: center; justify-content: center; gap: 12px; height: 44px; background: #f7f8f18c; border: 1px solid #ffffffa8; border-radius: 30px; color: #354e41; backdrop-filter: blur(12px); }
+.fufu-return { padding: 0 18px; font-size: 14px; letter-spacing: .05em; }
+.fufu-return > span { font-size: 22px; }
+.fufu-reset { width: 44px; }
+.fufu-toolbar button:enabled:hover { background: #f9faf3; }
+.fufu-stage { position: relative; width: min(1100px, 100%); min-width: 0; min-height: 0; justify-self: center; animation: fufu-appear .4s cubic-bezier(.16,1,.3,1) both; }
+.fufu-stage canvas { display: block; touch-action: none; cursor: grab; }
+.fufu-stage canvas:active { cursor: grabbing; }
+.fufu-stage canvas:focus-visible { outline-offset: -3px; border-radius: 24px; }
+.fufu-caption { text-align: center; padding: 10px 0 8px; text-shadow: 0 1px 14px #f4f2e7, 0 1px 4px #f4f2e7; }
+.fufu-caption-line { display: block; width: 42px; height: 1px; margin: 0 auto 19px; background: #527c6870; }
+.fufu-caption h2 { font-family: 'Songti SC', 'STSong', 'Noto Serif CJK SC', serif; font-weight: 500; font-size: clamp(24px, 2.5vw, 34px); line-height: 1.45; letter-spacing: .07em; margin: 0; }
+.fufu-caption p { margin: 14px 0 0; color: #52645b; font-size: 13px; letter-spacing: .08em; }
+.fufu-error { position: absolute; inset: 40% 20px auto; text-align: center; line-height: 1.8; }
+@keyframes fufu-appear { from { opacity: 0; transform: translateY(14px) scale(.92); } to { opacity: 1; transform: none; } }
 .help-panel { position: absolute; bottom: 126px; right: 0; width: 330px; max-width: 100%; padding: 24px; background: #f9faf6; border: 1px solid white; border-radius: 16px; box-shadow: 0 10px 50px #20382b18; }
 .help-panel h2 { font-size: 17px; font-weight: 500; margin: 0 0 12px; }
 .help-panel p { font-size: 14px; line-height: 1.85; color: #63705f; margin: 10px 0 0; }
@@ -96,7 +120,7 @@ h1 { font-size: 27px; font-weight: 550; margin: 0; letter-spacing: .04em; line-h
   .page-header { padding: 25px 25px; }
   .home-mark { width: 41px; height: 41px; }
   h1 { font-size: 24px; }
-  .scene-area { inset: 95px 10px 205px; }
+  .scene-area { inset: 95px 10px 235px; }
   .scene-footer { bottom: max(16px, env(safe-area-inset-bottom)); width: 440px; max-width: calc(100% - 32px); }
   .control-bar { flex-wrap: wrap; justify-content: center; gap: 8px; padding: 9px 12px 12px; border-radius: 19px; }
   .view-controls { width: 100%; }
@@ -108,7 +132,7 @@ h1 { font-size: 27px; font-weight: 550; margin: 0; letter-spacing: .04em; line-h
   .power-copy { min-width: 0; flex: 1; }
   .power-copy > span { font-size: 14px; }
   .power-copy small { font-size: 14px; }
-  .footer-meta { padding: 13px 1px 0; gap: 6px; }
+  .footer-meta { padding: 10px 1px 0; gap: 2px 12px; flex-wrap: wrap; justify-content: center; }
   .gesture-hint { font-size: 14px; gap: 6px; }
   .gesture-hint > svg { display: none; }
   .hint-dot { margin: 0 5px; }
@@ -121,12 +145,23 @@ h1 { font-size: 27px; font-weight: 550; margin: 0; letter-spacing: .04em; line-h
   h1 { font-size: 24px; }
   .view-indicator { font-size: 14px; padding: 8px 10px; margin-top: 6px; }
   .room-title p { margin-top: 5px; }
-  .scene-area { inset: 108px 0 204px; }
+  .scene-area { inset: 108px 0 235px; }
   .scene-canvas canvas { border-radius: 0; }
   .power-button > svg { width: 20px; height: 20px; }
   .power-button { gap: 8px; }
   .desktop-hint { display: none; }
   .touch-hint { display: inline; }
+  .fufu-inspector { padding: max(18px, env(safe-area-inset-top)) 16px max(30px, env(safe-area-inset-bottom)); }
+  .fufu-caption { padding-bottom: 20px; }
+  .fufu-caption h2 { font-size: 24px; letter-spacing: .025em; }
+  .fufu-caption p { margin-top: 12px; font-size: 12px; }
+}
+@media (max-height: 520px) {
+  .fufu-inspector { padding: 10px 20px 12px; grid-template-rows: 44px minmax(0, 1fr) auto; }
+  .fufu-caption { padding: 0; }
+  .fufu-caption-line { display: none; }
+  .fufu-caption h2 { font-size: 23px; }
+  .fufu-caption p { margin-top: 5px; font-size: 12px; }
 }
 @media (max-width: 360px) {
   .page-header { padding-left: 16px; padding-right: 16px; }
